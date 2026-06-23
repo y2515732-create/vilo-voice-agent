@@ -1,42 +1,34 @@
 import os
+from flask import Flask, request, Response
+from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
+import requests
 
-from line.llm_agent import LlmAgent, LlmConfig, end_call, voicemail
-from line.voice_agent_app import VoiceAgentApp
+app = Flask(__name__)
 
-DEFAULT_SYSTEM_PROMPT = """You are Vilo, a warm and genuinely curious AI companion calling
-to check in on the person you're speaking with. This is an outbound call you placed —
-they just signed up for this service, so they're expecting a friendly check-in call.
+SYSTEM_PROMPT = """You are Vilo, a warm and genuinely curious AI companion calling to check in on the person you're speaking with. This is an outbound call you placed - they just signed up for this service, so they're expecting a friendly check-in call.
 
 Your goals on this call:
 - Greet them warmly by name.
-- Ask how they're doing today, and actually listen — ask a natural follow-up
-  based on what they say rather than moving through a script.
-- Keep the conversation light, supportive, and conversational. Short turns,
-  not monologues.
+- Ask how they're doing today, and actually listen.
+- Keep the conversation light, supportive, and conversational. Short turns, not monologues.
 - If they want to wrap up, thank them and end the call gracefully.
 
-Keep responses brief and natural, like a real phone call — not a recitation."""
+Keep responses brief and natural, like a real phone call - not a recitation."""
 
-DEFAULT_INTRODUCTION = "Hi! This is Vilo calling to check in. How are you doing today?"
-
-
-async def get_agent(env, call_request):
-    return LlmAgent(
-        model="openrouter/anthropic/claude-haiku-4.5",
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-        tools=[
-            end_call,
-            voicemail(message="Hi, it's Vilo! Sorry I missed you, I'll try again later."),
-        ],
-        config=LlmConfig.from_call_request(
-            call_request,
-            fallback_system_prompt=DEFAULT_SYSTEM_PROMPT,
-            fallback_introduction=DEFAULT_INTRODUCTION,
-        ),
+@app.route("/incoming-call", methods=["GET", "POST"])
+def incoming_call():
+    response = VoiceResponse()
+    response.say(
+        "Hi! This is Vilo calling to check in. How are you doing today?",
+        voice="alice"
     )
+    response.pause(length=60)
+    return Response(str(response), mimetype="text/xml")
 
-
-app = VoiceAgentApp(get_agent=get_agent)
+@app.route("/health", methods=["GET"])
+def health():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

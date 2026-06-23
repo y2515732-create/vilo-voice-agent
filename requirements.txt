@@ -1,4 +1,5 @@
-line-ai
-openai
+twilio
+flask
+requests
 cartesia
 python-dotenv
