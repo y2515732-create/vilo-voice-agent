@@ -27,7 +27,7 @@ def ask_ai(conversation_history):
     )
     data = response.json()
     if "choices" not in data:
-        print("OpenRouter error:", data)
+        print("FULL RESPONSE:", data)
         return "Sorry, I had a little trouble there. Could you say that again?"
     return data["choices"][0]["message"]["content"]
     
