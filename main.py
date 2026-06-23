@@ -29,7 +29,7 @@ def ask_ai(conversation_history):
     data = response.json()
     if "choices" not in data:
         print("FULL RESPONSE:", data)
-        return "Sorry, I had a little trouble there. Could you say that again?"
+        return f"OpenRouter said: {str(data)}"
     return data["choices"][0]["message"]["content"]
     
 @app.route("/incoming-call", methods=["GET", "POST"])
