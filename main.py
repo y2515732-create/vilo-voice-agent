@@ -1,11 +1,11 @@
 import os
 from flask import Flask, request, Response
-from twilio.twiml.voice_response import VoiceResponse, Connect, Stream
+from twilio.twiml.voice_response import VoiceResponse, Gather
 import requests
 
 app = Flask(__name__)
 
-SYSTEM_PROMPT = """You are Vilo, a warm and genuinely curious AI companion calling to check in on the person you're speaking with. This is an outbound call you placed - they just signed up for this service, so they're expecting a friendly check-in call.
+SYSTEM_PROMPT = """You are Vilo, a warm and genuinely curious AI companion calling to check in.
 
 Your goals on this call:
 - Greet them warmly by name.
@@ -15,14 +15,37 @@ Your goals on this call:
 
 Keep responses brief and natural, like a real phone call - not a recitation."""
 
+def ask_ai(conversation_history):
+    response = requests.post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={"Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
+        json={
+            "model": "anthropic/claude-3.5-sonnet",
+            "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history,
+        },
+        timeout=10,
+    )
+    return response.json()["choices"][0]["message"]["content"]
+
 @app.route("/incoming-call", methods=["GET", "POST"])
 def incoming_call():
     response = VoiceResponse()
-    response.say(
-        "Hi! This is Vilo calling to check in. How are you doing today?",
-        voice="alice"
-    )
-    response.pause(length=60)
+    gather = Gather(input="speech", action="/handle-speech", method="POST", speechTimeout="auto")
+    gather.say("Hi! This is Vilo calling to check in. How are you doing today?", voice="alice")
+    response.append(gather)
+    response.say("Sorry, I didn't catch that. Talk to you soon!", voice="alice")
+    return Response(str(response), mimetype="text/xml")
+
+@app.route("/handle-speech", methods=["POST"])
+def handle_speech():
+    user_said = request.form.get("SpeechResult", "")
+    reply = ask_ai([{"role": "user", "content": user_said}])
+
+    response = VoiceResponse()
+    gather = Gather(input="speech", action="/handle-speech", method="POST", speechTimeout="auto")
+    gather.say(reply, voice="alice")
+    response.append(gather)
+    response.say("Take care, talk soon!", voice="alice")
     return Response(str(response), mimetype="text/xml")
 
 @app.route("/health", methods=["GET"])
