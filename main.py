@@ -16,6 +16,7 @@ Your goals on this call:
 Keep responses brief and natural, like a real phone call - not a recitation."""
 
 def ask_ai(conversation_history):
+    print("API KEY:", os.environ.get('OPENROUTER_API_KEY'))
     response = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
         headers={"Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
