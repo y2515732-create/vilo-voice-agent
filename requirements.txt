@@ -1,4 +1,4 @@
-linem
+line-ai
 openai
 cartesia
 python-dotenv
