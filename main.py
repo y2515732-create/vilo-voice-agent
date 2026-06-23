@@ -21,16 +21,11 @@ DEFAULT_INTRODUCTION = "Hi! This is Vilo calling to check in. How are you doing 
 
 
 async def get_agent(env, call_request):
-    # call_request.agent.system_prompt / .introduction can be set per-call
-    # (e.g. by your API server) so each user gets a personalized greeting.
-    # If not provided, falls back to the defaults above.
     return LlmAgent(
-        model="anthropic/claude-haiku-4-5-20251001",
-        api_key=os.getenv("ANTHROPIC_API_KEY"),
+        model="openrouter/anthropic/claude-haiku-4.5",
+        api_key=os.getenv("OPENROUTER_API_KEY"),
         tools=[
             end_call,
-            # Outbound calls can hit voicemail — this hangs up cleanly
-            # if it detects a machine greeting instead of a real person.
             voicemail(message="Hi, it's Vilo! Sorry I missed you, I'll try again later."),
         ],
         config=LlmConfig.from_call_request(
@@ -45,4 +40,3 @@ app = VoiceAgentApp(get_agent=get_agent)
 
 if __name__ == "__main__":
     app.run()
-  
