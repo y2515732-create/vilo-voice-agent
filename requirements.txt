@@ -1,0 +1,4 @@
+linem
+openai
+cartesia
+python-dotenv
