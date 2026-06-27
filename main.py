@@ -16,7 +16,6 @@ Your goals on this call:
 Keep responses brief and natural, like a real phone call - not a recitation."""
 
 def ask_ai(conversation_history):
-    print("API KEY:", os.environ.get('OPENROUTER_API_KEY'))
     response = requests.post(
         "https://openrouter.ai/api/v1/chat/completions",
         headers={"Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
@@ -28,8 +27,8 @@ def ask_ai(conversation_history):
     )
     data = response.json()
     if "choices" not in data:
-        print("FULL RESPONSE:", data)
-        return f"OpenRouter said: {str(data)}"
+        print("FULL RESPONSE:", data)  # still logs to Render, just doesn't get spoken
+        return "Sorry, I'm having trouble connecting right now. Let's try again in a bit!"
     return data["choices"][0]["message"]["content"]
     
 @app.route("/incoming-call", methods=["GET", "POST"])
