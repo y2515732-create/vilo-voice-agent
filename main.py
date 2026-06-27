@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Flask, request
 import requests
 
@@ -15,10 +16,17 @@ Your goals on this call:
 - Keep the conversation light, supportive, and conversational. Short turns, not monologues.
 - If they want to wrap up, thank them and end the call gracefully.
 
-Keep responses brief and natural, like a real phone call - not a recitation."""
+Keep responses brief and natural, like a real phone call - not a recitation.
+Keep every response to 1-2 short sentences maximum.
+Never use markdown, asterisks, bullet points, or any text formatting - this is spoken aloud, plain words only."""
 
 # track conversation history per call so the AI has context turn to turn
 conversations = {}
+
+def clean_for_speech(text):
+    # strip markdown symbols so TTS doesn't read them aloud (e.g. "*" as "star")
+    text = re.sub(r'[\*_#`~]', '', text)
+    return text.strip()
 
 def ask_ai(conversation_history):
     response = requests.post(
@@ -27,6 +35,7 @@ def ask_ai(conversation_history):
         json={
             "model": "anthropic/claude-sonnet-4-5",
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history,
+            "max_tokens": 120,
         },
         timeout=10,
     )
@@ -34,7 +43,7 @@ def ask_ai(conversation_history):
     if "choices" not in data:
         print("FULL RESPONSE:", data, flush=True)  # still logs to Render, just doesn't get spoken
         return "Sorry, I'm having trouble connecting right now. Let's try again in a bit!"
-    return data["choices"][0]["message"]["content"]
+    return clean_for_speech(data["choices"][0]["message"]["content"])
 
 def telnyx_action(call_control_id, action, payload=None):
     url = f"{TELNYX_BASE}/{call_control_id}/actions/{action}"
