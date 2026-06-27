@@ -20,6 +20,12 @@ Keep responses brief and natural, like a real phone call - not a recitation.
 Keep every response to 1-2 short sentences maximum.
 Never use markdown, asterisks, bullet points, or any text formatting - this is spoken aloud, plain words only."""
 
+GREETING = ("Hi! This is Vilo calling. I was just hitting you up, you know, "
+            "I wanted to see how you were doing. I'm just trying to welcome you "
+            "to the new assistant service you signed up for. I don't know if "
+            "you wanna check your email so you can go into your portal. "
+            "How are you doing today? How's everything been?")
+
 # track conversation history per call so the AI has context turn to turn
 conversations = {}
 
@@ -41,7 +47,7 @@ def ask_ai(conversation_history):
     )
     data = response.json()
     if "choices" not in data:
-        print("FULL RESPONSE:", data, flush=True)  # still logs to Render, just doesn't get spoken
+        print("FULL RESPONSE:", data, flush=True)
         return "Sorry, I'm having trouble connecting right now. Let's try again in a bit!"
     return clean_for_speech(data["choices"][0]["message"]["content"])
 
@@ -65,7 +71,7 @@ def incoming_call():
     elif event_type == "call.answered":
         conversations[call_control_id] = []
         telnyx_action(call_control_id, "speak", {
-            "payload": "Hi! This is Vilo calling to check in. How are you doing today?",
+            "payload": GREETING,
             "voice": "female",
             "language": "en-US"
         })
@@ -78,9 +84,10 @@ def incoming_call():
         t_data = event["payload"].get("transcription_data", {})
         if t_data.get("is_final") and t_data.get("transcript"):
             user_said = t_data["transcript"].strip()
+            confidence = t_data.get("confidence", 1.0)
 
-            # ignore very short/noise transcripts, common with echo
-            if len(user_said.split()) < 2:
+            # filter out short/low-confidence noise, common with speakerphone echo
+            if len(user_said.split()) < 3 or confidence < 0.6:
                 return "", 200
 
             history = conversations.setdefault(call_control_id, [])
@@ -93,7 +100,7 @@ def incoming_call():
                 "payload": reply,
                 "voice": "female",
                 "language": "en-US",
-                "stop": "all"   # interrupt anything currently playing
+                "stop": "all"
             })
 
     elif event_type == "call.hangup":
@@ -107,4 +114,4 @@ def health():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)    app.run(host="0.0.0.0", port=port)
