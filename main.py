@@ -32,7 +32,7 @@ def ask_ai(conversation_history):
     )
     data = response.json()
     if "choices" not in data:
-        print("FULL RESPONSE:", data)  # still logs to Render, just doesn't get spoken
+        print("FULL RESPONSE:", data, flush=True)  # still logs to Render, just doesn't get spoken
         return "Sorry, I'm having trouble connecting right now. Let's try again in a bit!"
     return data["choices"][0]["message"]["content"]
 
@@ -40,7 +40,7 @@ def telnyx_action(call_control_id, action, payload=None):
     url = f"{TELNYX_BASE}/{call_control_id}/actions/{action}"
     headers = {"Authorization": f"Bearer {TELNYX_API_KEY}"}
     r = requests.post(url, headers=headers, json=payload or {}, timeout=10)
-    print(f"Telnyx {action} ->", r.status_code, r.text)
+    print(f"Telnyx {action} -> {r.status_code} {r.text}", flush=True)
     return r
 
 @app.route("/incoming-call", methods=["POST"])
@@ -48,6 +48,7 @@ def incoming_call():
     event = request.json["data"]
     event_type = event["event_type"]
     call_control_id = event["payload"]["call_control_id"]
+    print(f"EVENT: {event_type} | call_control_id={call_control_id}", flush=True)
 
     if event_type == "call.initiated":
         telnyx_action(call_control_id, "answer")
