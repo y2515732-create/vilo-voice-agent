@@ -1,9 +1,11 @@
 import os
-from flask import Flask, request, Response
-from twilio.twiml.voice_response import VoiceResponse, Gather
+from flask import Flask, request
 import requests
 
 app = Flask(__name__)
+
+TELNYX_API_KEY = os.environ.get("TELNYX_API_KEY")
+TELNYX_BASE = "https://api.telnyx.com/v2/calls"
 
 SYSTEM_PROMPT = """You are Vilo, a warm and genuinely curious AI companion calling to check in.
 
@@ -14,6 +16,9 @@ Your goals on this call:
 - If they want to wrap up, thank them and end the call gracefully.
 
 Keep responses brief and natural, like a real phone call - not a recitation."""
+
+# track conversation history per call so the AI has context turn to turn
+conversations = {}
 
 def ask_ai(conversation_history):
     response = requests.post(
@@ -30,27 +35,55 @@ def ask_ai(conversation_history):
         print("FULL RESPONSE:", data)  # still logs to Render, just doesn't get spoken
         return "Sorry, I'm having trouble connecting right now. Let's try again in a bit!"
     return data["choices"][0]["message"]["content"]
-    
-@app.route("/incoming-call", methods=["GET", "POST"])
+
+def telnyx_action(call_control_id, action, payload=None):
+    url = f"{TELNYX_BASE}/{call_control_id}/actions/{action}"
+    headers = {"Authorization": f"Bearer {TELNYX_API_KEY}"}
+    r = requests.post(url, headers=headers, json=payload or {}, timeout=10)
+    print(f"Telnyx {action} ->", r.status_code, r.text)
+    return r
+
+@app.route("/incoming-call", methods=["POST"])
 def incoming_call():
-    response = VoiceResponse()
-    gather = Gather(input="speech", action="/handle-speech", method="POST", speechTimeout="auto")
-    gather.say("Hi! This is Vilo calling to check in. How are you doing today?", voice="alice")
-    response.append(gather)
-    response.say("Sorry, I didn't catch that. Talk to you soon!", voice="alice")
-    return Response(str(response), mimetype="text/xml")
+    event = request.json["data"]
+    event_type = event["event_type"]
+    call_control_id = event["payload"]["call_control_id"]
 
-@app.route("/handle-speech", methods=["POST"])
-def handle_speech():
-    user_said = request.form.get("SpeechResult", "")
-    reply = ask_ai([{"role": "user", "content": user_said}])
+    if event_type == "call.initiated":
+        telnyx_action(call_control_id, "answer")
 
-    response = VoiceResponse()
-    gather = Gather(input="speech", action="/handle-speech", method="POST", speechTimeout="auto")
-    gather.say(reply, voice="alice")
-    response.append(gather)
-    response.say("Take care, talk soon!", voice="alice")
-    return Response(str(response), mimetype="text/xml")
+    elif event_type == "call.answered":
+        conversations[call_control_id] = []
+        telnyx_action(call_control_id, "speak", {
+            "payload": "Hi! This is Vilo calling to check in. How are you doing today?",
+            "voice": "female",
+            "language": "en-US"
+        })
+        telnyx_action(call_control_id, "transcription_start", {
+            "language": "en",
+            "transcription_engine": "Telnyx"
+        })
+
+    elif event_type == "call.transcription":
+        t_data = event["payload"].get("transcription_data", {})
+        if t_data.get("is_final") and t_data.get("transcript"):
+            user_said = t_data["transcript"]
+            history = conversations.setdefault(call_control_id, [])
+            history.append({"role": "user", "content": user_said})
+
+            reply = ask_ai(history)
+            history.append({"role": "assistant", "content": reply})
+
+            telnyx_action(call_control_id, "speak", {
+                "payload": reply,
+                "voice": "female",
+                "language": "en-US"
+            })
+
+    elif event_type == "call.hangup":
+        conversations.pop(call_control_id, None)
+
+    return "", 200
 
 @app.route("/health", methods=["GET"])
 def health():
