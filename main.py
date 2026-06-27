@@ -26,11 +26,11 @@ GREETING = ("Hi! This is Vilo calling. I was just hitting you up, you know, "
             "you wanna check your email so you can go into your portal. "
             "How are you doing today? How's everything been?")
 
-# track conversation history per call so the AI has context turn to turn
 conversations = {}
+processed_events = set()   # dedupe webhook retries
+answered_calls = set()     # make sure greeting only fires once per call
 
 def clean_for_speech(text):
-    # strip markdown symbols so TTS doesn't read them aloud (e.g. "*" as "star")
     text = re.sub(r'[\*_#`~]', '', text)
     return text.strip()
 
@@ -61,14 +61,26 @@ def telnyx_action(call_control_id, action, payload=None):
 @app.route("/incoming-call", methods=["POST"])
 def incoming_call():
     event = request.json["data"]
+    event_id = event.get("id")
     event_type = event["event_type"]
     call_control_id = event["payload"]["call_control_id"]
-    print(f"EVENT: {event_type} | call_control_id={call_control_id}", flush=True)
+    print(f"EVENT: {event_type} | id={event_id} | call_control_id={call_control_id}", flush=True)
+
+    # ignore duplicate webhook deliveries entirely
+    if event_id in processed_events:
+        print(f"DUPLICATE event {event_id}, skipping", flush=True)
+        return "", 200
+    processed_events.add(event_id)
 
     if event_type == "call.initiated":
         telnyx_action(call_control_id, "answer")
 
     elif event_type == "call.answered":
+        if call_control_id in answered_calls:
+            print(f"Call {call_control_id} already answered, skipping greeting", flush=True)
+            return "", 200
+        answered_calls.add(call_control_id)
+
         conversations[call_control_id] = []
         telnyx_action(call_control_id, "speak", {
             "payload": GREETING,
@@ -86,7 +98,6 @@ def incoming_call():
             user_said = t_data["transcript"].strip()
             confidence = t_data.get("confidence", 1.0)
 
-            # filter out short/low-confidence noise, common with speakerphone echo
             if len(user_said.split()) < 3 or confidence < 0.6:
                 return "", 200
 
@@ -105,6 +116,7 @@ def incoming_call():
 
     elif event_type == "call.hangup":
         conversations.pop(call_control_id, None)
+        answered_calls.discard(call_control_id)
 
     return "", 200
 
