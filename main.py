@@ -68,7 +68,12 @@ def incoming_call():
     elif event_type == "call.transcription":
         t_data = event["payload"].get("transcription_data", {})
         if t_data.get("is_final") and t_data.get("transcript"):
-            user_said = t_data["transcript"]
+            user_said = t_data["transcript"].strip()
+
+            # ignore very short/noise transcripts, common with echo
+            if len(user_said.split()) < 2:
+                return "", 200
+
             history = conversations.setdefault(call_control_id, [])
             history.append({"role": "user", "content": user_said})
 
@@ -78,7 +83,8 @@ def incoming_call():
             telnyx_action(call_control_id, "speak", {
                 "payload": reply,
                 "voice": "female",
-                "language": "en-US"
+                "language": "en-US",
+                "stop": "all"   # interrupt anything currently playing
             })
 
     elif event_type == "call.hangup":
