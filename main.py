@@ -8,7 +8,7 @@ app = Flask(__name__)
 TELNYX_API_KEY = os.environ.get("TELNYX_API_KEY")
 TELNYX_BASE = "https://api.telnyx.com/v2/calls"
 
-SYSTEM_PROMPT = """You are Vilo, a warm and genuinely curious AI companion calling to check in.
+SYSTEM_PROMPT = """You are Veliq, a warm and genuinely curious AI companion calling to check in.
 
 Your goals on this call:
 - Greet them warmly by name.
@@ -20,7 +20,7 @@ Keep responses brief and natural, like a real phone call - not a recitation.
 Keep every response to 1-2 short sentences maximum.
 Never use markdown, asterisks, bullet points, or any text formatting - this is spoken aloud, plain words only."""
 
-GREETING = ("Hi! This is Vilo calling. I was just hitting you up, you know, "
+GREETING = ("Hi! This is Veliq calling. I was just hitting you up, you know, "
             "I wanted to see how you were doing. I'm just trying to welcome you "
             "to the new assistant service you signed up for. I don't know if "
             "you wanna check your email so you can go into your portal. "
